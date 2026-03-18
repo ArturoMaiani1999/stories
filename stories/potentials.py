@@ -1,8 +1,8 @@
 from typing import Sequence
 
 import flax.linen as nn
-from jax._src.nn.functions import gelu
 from flax.linen.initializers import he_uniform, zeros_init
+from jax.nn import gelu
 
 
 class MLPPotential(nn.Module):

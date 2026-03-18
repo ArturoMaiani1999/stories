@@ -114,8 +114,14 @@ def quadratic_loss(
     geom_xx = PointCloud(x, x, scale_cost=(1 / (1 - quadratic_weight)))
     geom_yy = PointCloud(y, y, scale_cost=(1 / (1 - quadratic_weight)))
 
-    # These keyword arguments are passed to all quadratic problems.
-    gw_kwds = {"threshold": 1e-3, "epsilon": epsilon, "relative_epsilon": False}
+    # Newer ott-jax versions require an explicit linear solver for FGW.
+    linear_solver = Sinkhorn(threshold=1e-3)
+    gw_kwds = {
+        "linear_solver": linear_solver,
+        "epsilon": epsilon,
+        "relative_epsilon": None,
+        "threshold": 1e-3,
+    }
 
     # Compute the FGW loss between point clouds x and y.
     problem = QuadraticProblem(geom_s_x, geom_s_y, geom_xy, a=a, b=b)

@@ -7,8 +7,36 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 import optax
-from flax.training import orbax_utils
-from flax.training.early_stopping import EarlyStopping
+try:
+    from flax.training import EarlyStopping
+except ImportError:
+    @dataclass
+    class EarlyStopping:
+        min_delta: float = 0.0
+        patience: int = 10
+        best_metric: float = float("inf")
+        patience_count: int = 0
+        should_stop: bool = False
+
+        def update(self, metric):
+            metric = float(metric)
+            if metric < self.best_metric - self.min_delta:
+                return EarlyStopping(
+                    min_delta=self.min_delta,
+                    patience=self.patience,
+                    best_metric=metric,
+                    patience_count=0,
+                    should_stop=False,
+                )
+
+            patience_count = self.patience_count + 1
+            return EarlyStopping(
+                min_delta=self.min_delta,
+                patience=self.patience,
+                best_metric=self.best_metric,
+                patience_count=patience_count,
+                should_stop=patience_count >= self.patience,
+            )
 from jax.random import PRNGKey
 import uuid
 from orbax.checkpoint.args import StandardRestore

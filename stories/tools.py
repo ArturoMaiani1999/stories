@@ -115,6 +115,7 @@ class DataLoader:
 
                 if self.weight_key:
                     batch_a = self.adata.obs[self.weight_key].iloc[batch_idx].values
+                    batch_a = batch_a.copy()
                     batch_a /= batch_a.sum()
                 else:
                     batch_a = np.ones(shape[0])
@@ -154,6 +155,8 @@ class DataLoader:
             bool: True for train, False for val.
         """
         freq_val = 1 - self.train_val_split
+        if freq_val <= 0:
+            return True
         return iteration % int(1 / freq_val) != 0
 
 
