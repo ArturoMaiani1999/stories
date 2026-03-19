@@ -78,6 +78,54 @@ class SpaceTime:
     log_callback: Callable | None = None
     quadratic_weight: float = 5e-3
 
+    def _resolve_checkpoint_manager(
+        self, checkpoint_manager: CheckpointManager | str | None
+    ) -> CheckpointManager:
+        if not checkpoint_manager:
+            return default_checkpoint_manager(f"/tmp/{uuid.uuid4()}")
+        if isinstance(checkpoint_manager, str):
+            return default_checkpoint_manager(checkpoint_manager)
+        return checkpoint_manager
+
+    def _init_params_from_features(
+        self, n_features: int, key: jax.Array = PRNGKey(0)
+    ) -> None:
+        dummy_x = jnp.ones((1, n_features))
+        self.params = self.potential.init(key, dummy_x)
+
+    def load(
+        self,
+        adata: AnnData,
+        omics_key: str,
+        checkpoint_manager: CheckpointManager | str,
+        step: int | None = None,
+        key: jax.Array = PRNGKey(0),
+    ) -> None:
+        """Load model parameters from an existing checkpoint.
+
+        Args:
+            adata (AnnData): AnnData used to infer the input feature dimension.
+            omics_key (str): The obsm field containing the model input coordinates.
+            checkpoint_manager (CheckpointManager | str): Checkpoint manager or path.
+            step (int | None, optional): Checkpoint step to restore. If None, restore
+                the latest available step.
+            key (jax.Array, optional): Random key used to initialize the parameter
+                structure before restore.
+        """
+
+        checkpoint_manager = self._resolve_checkpoint_manager(checkpoint_manager)
+        self._init_params_from_features(adata.obsm[omics_key].shape[1], key)
+
+        if step is None:
+            step = checkpoint_manager.latest_step()
+            if step is None:
+                raise ValueError("No checkpoint found to restore.")
+
+        self.best_step = step
+        self.params = checkpoint_manager.restore(
+            step, args=StandardRestore(self.params)
+        )
+
     def fit(
         self,
         adata: AnnData,
@@ -121,10 +169,7 @@ class SpaceTime:
             ), "Relative quadratic weight must be strictly between 0 and 1."
 
         # If the checkpoint_manager is a string, make the default one.
-        if not checkpoint_manager:
-            checkpoint_manager = default_checkpoint_manager(f"/tmp/{uuid.uuid4()}")
-        elif checkpoint_manager and isinstance(checkpoint_manager, str):
-            checkpoint_manager = default_checkpoint_manager(checkpoint_manager)
+        checkpoint_manager = self._resolve_checkpoint_manager(checkpoint_manager)
 
         # Initialize the statistics for logging.
         self.train_it, self.train_losses = [], []
@@ -169,8 +214,7 @@ class SpaceTime:
 
         # Initialize the parameters of the potential function and of the optimizer.
         init_key, key = jax.random.split(key)
-        dummy_x = jnp.ones((batch_size, dataloader.n_features))  # Used to infer sizes.
-        self.params = self.potential.init(init_key, dummy_x)
+        self._init_params_from_features(dataloader.n_features, init_key)
         opt_state = optimizer.init(self.params)
 
         # Define the early stopping criterion and checkpointing parameters.

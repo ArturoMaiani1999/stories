@@ -1,4 +1,5 @@
 from typing import Dict
+from pathlib import Path
 
 from anndata import AnnData
 import jax
@@ -215,6 +216,23 @@ def plot_velocity(
     """
     import cellrank as cr
 
+    color = kwargs.get("color")
+    palette = kwargs.get("palette")
+    if isinstance(color, str) and isinstance(palette, dict) and color in adata.obs:
+        obs = adata.obs[color]
+        if not hasattr(obs.dtype, "categories"):
+            obs = obs.astype("category")
+            adata.obs[color] = obs
+
+        categories = list(obs.dtype.categories)
+        missing = [cat for cat in categories if cat not in palette]
+        if missing:
+            raise ValueError(
+                f"Palette is missing colors for categories: {missing}."
+            )
+
+        kwargs["palette"] = [palette[cat] for cat in categories]
+
     vk = cr.kernels.VelocityKernel(
         adata, attr="obsm", xkey=omics_key, vkey=velocity_key
     ).compute_transition_matrix(backend="threading")
@@ -227,7 +245,8 @@ def default_checkpoint_manager(absolute_path: str) -> CheckpointManager:
     Args:
         absolute_path (str): Checkpointing path
     """
-    path = ocp.test_utils.erase_and_create_empty(absolute_path)
+    path = Path(absolute_path)
+    path.mkdir(parents=True, exist_ok=True)
     options = CheckpointManagerOptions(
         save_interval_steps=1,
         max_to_keep=1,

@@ -3,6 +3,7 @@ import stories.steps
 import anndata as ad
 import jax
 import numpy as np
+import tempfile
 
 key = jax.random.PRNGKey(0)
 key_0, key_1, key_2 = jax.random.split(key, 3)
@@ -91,3 +92,32 @@ def test_model_monge_implicit():
         max_iter=5,
     )
     model.transform(adata, omics_key="X_pca", tau=1.0, batch_size=50)
+
+
+def test_model_load_checkpoint():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        checkpoint_path = f"{tmpdir}/ckpt"
+
+        model = stories.SpaceTime(proximal_step=stories.steps.ExplicitStep())
+        model.fit(
+            adata,
+            time_key="time",
+            omics_key="X_pca",
+            space_key="spatial",
+            batch_size=50,
+            max_iter=2,
+            checkpoint_manager=checkpoint_path,
+        )
+        original_pred = model.transform(adata, omics_key="X_pca", tau=1.0, batch_size=50)
+
+        loaded_model = stories.SpaceTime(proximal_step=stories.steps.ExplicitStep())
+        loaded_model.load(
+            adata,
+            omics_key="X_pca",
+            checkpoint_manager=checkpoint_path,
+        )
+        loaded_pred = loaded_model.transform(
+            adata, omics_key="X_pca", tau=1.0, batch_size=50
+        )
+
+        np.testing.assert_allclose(original_pred, loaded_pred)
