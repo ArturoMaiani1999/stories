@@ -18,26 +18,77 @@ STORIES is based on the Scverse ecosystem, making it easy to interface with exis
 
 - STORIES is implemented as a Python package seamlessly integrated within the scverse ecosystem. It relies on JAX for fast GPU computations and JIT compilation, and OTT for Optimal Transport computations.
 - **System requirements**: Python >= 3.10. Continuously tested on Ubuntu 22.04 LTS. Installation time <1mn. Benefits from CUDA or TPU for large datasets (on a GPU A40 and for 800k cells, training time ~ 30mn).
+- The verified modern NVIDIA GPU installation path documented below was tested on Ubuntu 24.04 with Python 3.11 on an NVIDIA GeForce RTX 5070 Ti Laptop GPU (Blackwell, `sm_100`) using NVIDIA driver `580.126.09`, which supports up to CUDA 13.0.
 
 ### via PyPI (recommended)
+
+For a reproducible install, start from a clean Python environment.
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+pip install "numpy<2"
+```
+
+#### CPU-only install
 
 ```bash
 pip install stories-jax
 ```
 
-By default, JAX is installed for CPU. To get the GPU version, you can use the following (refer to [JAX's docs](https://jax.readthedocs.io/en/latest/installation.html)). For use in Google Colab, you'll need to restart the kernel after this command.
+#### NVIDIA GPU install
+
+On the tested machine, the reproducible path used a conda environment plus the `jax[cuda12]` wheel family, even though the NVIDIA driver supports CUDA 13.0.
 
 ```bash
-pip install stories-jax "jax[cuda12]>=0.4.35,<0.7"
+conda create --name stories_test python=3.11 -y
+conda activate stories_test
+conda install -c conda-forge cuda-version=12.6 -y
+pip install "numpy==1.26.4" "pandas==2.0.3"
+pip install stories-jax
+pip install "jax==0.6.2" "jaxlib==0.6.2" \
+    "jax-cuda12-plugin[with-cuda]==0.6.2" \
+    "jax-cuda12-pjrt==0.6.2"
 ```
 
-On newer NVIDIA GPUs such as Ada Lovelace RTX 4xxx and Blackwell RTX 5xxx, installing a recent `jax[cuda12]` build is important because older JAX wheels may bundle a `ptxas` that cannot target those architectures. The current dependency set should stay below JAX 0.7 until the `ott/equinox` stack used by STORIES is upgraded to a compatible release.
+The explicit `cuda-version=12.6`, `numpy==1.26.4`, and `pandas==2.0.3` pins are currently recommended for reproducibility. In a fresh environment, `pip` may otherwise resolve combinations that either break import-time compatibility in the broader scverse stack or fail to initialize the CUDA backend correctly.
+
+On newer NVIDIA GPUs such as Ada Lovelace RTX 4xxx and Blackwell RTX 5xxx, installing a recent CUDA-enabled JAX build is important because older JAX wheels may bundle a `ptxas` that cannot target those architectures. For the currently validated STORIES setup, use the `cuda12` JAX wheel family together with the conda `cuda-version=12.6` package. The current dependency set should stay below JAX 0.7 until the `ott/equinox` stack used by STORIES is upgraded to a compatible release. For use in Google Colab, restart the kernel after installing the CUDA-enabled JAX wheel.
+
+#### Verify the install
+
+```bash
+python -c "import stories; print('stories import ok')"
+python -c "import jax; print(jax.devices())"
+```
+
+On a CUDA machine, the second command should list a `CudaDevice`.
 
 ### via GitHub (development version)
 
+For a reproducible development install on a machine with a recent NVIDIA driver, use the same validated package set:
+
 ```bash
 git clone git@github.com:cantinilab/stories.git
-pip install ./stories/
+cd stories
+conda create --name stories_dev python=3.11 -y
+conda activate stories_dev
+conda install -c conda-forge cuda-version=12.6 -y
+pip install "numpy==1.26.4" "pandas==2.0.3"
+pip install -e .
+pip install "jax==0.6.2" "jaxlib==0.6.2" \
+    "jax-cuda12-plugin[with-cuda]==0.6.2" \
+    "jax-cuda12-pjrt==0.6.2"
+python -c "import stories; print('stories import ok')"
+python -c "import jax; print(jax.devices())"
+```
+
+If you are installing the development version without a GPU, replace the CUDA JAX command above with:
+
+```bash
+pip install "numpy==1.26.4" "pandas==2.0.3"
+pip install -e .
 ```
 
 ## Getting started
