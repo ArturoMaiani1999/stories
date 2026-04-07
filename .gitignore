@@ -163,3 +163,8 @@ cython_debug/
 
 
 docs/vignettes/ckpt_axolotl/*
+docs/vignettes/ckpt_axolotl_gnn/*
+docs/vignettes/phase4_outputs/*
+runs/*
+
+.deps/*
